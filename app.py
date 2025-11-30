@@ -1121,43 +1121,91 @@ session.headers.update({
 })
 
 def get_gold_price():
-    """ดึงราคา XAUUSD แบบ Real-time"""
+    """ดึงราคา XAUUSD แบบ Real-time - Fixed Version"""
+    
+    # ===== API 1: Metals.live (แนะนำ - ฟรี ไม่ต้อง API Key) =====
     try:
-        response = session.get(
-            'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X',
-            params={'interval': '1m', 'range': '1d'},
+        response = requests.get(
+            'https://www.metals.live/v1/spot/gold',
             headers={'User-Agent': 'Mozilla/5.0'},
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            result = data['chart']['result'][0]
-            meta = result['meta']
             
-            # ดึงราคาปัจจุบัน
+            current_price = data.get('price')
+            prev_close = data.get('previous_close', current_price)
+            
+            if current_price is None:
+                raise ValueError("No price data from Metals.live")
+            
+            change = current_price - prev_close
+            change_percent = (change / prev_close) * 100 if prev_close else 0
+            
+            spread = 0.50
+            forex_price = current_price + random.uniform(0.30, 1.00)
+            
+            print(f"✅ Metals.live API: ${current_price:.2f} ({change:+.2f}, {change_percent:+.2f}%)")
+            
+            return {
+                'price': round(forex_price, 2),
+                'spot_price': round(current_price, 2),
+                'change': round(change, 2),
+                'change_percent': round(change_percent, 2),
+                'high': round(data.get('high', current_price), 2),
+                'low': round(data.get('low', current_price), 2),
+                'open': round(prev_close, 2),
+                'spread': round(forex_price - current_price, 2),
+                'bid': round(forex_price - spread, 2),
+                'ask': round(forex_price + spread, 2)
+            }, None
+            
+    except Exception as e1:
+        print(f"⚠️ Metals.live failed: {e1}")
+    
+    # ===== API 2: Yahoo Finance Gold Futures (Fallback) =====
+    try:
+        response = requests.get(
+            'https://query1.finance.yahoo.com/v8/finance/chart/GC=F',
+            params={'interval': '1m', 'range': '1d'},
+            headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json'
+            },
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'chart' not in data or 'result' not in data['chart'] or not data['chart']['result']:
+                raise ValueError("Invalid Yahoo Finance response")
+            
+            result = data['chart']['result'][0]
+            meta = result.get('meta', {})
+            
             current_spot = meta.get('regularMarketPrice')
+            
             if current_spot is None:
                 indicators = result.get('indicators', {}).get('quote', [{}])[0]
                 close_prices = indicators.get('close', [])
                 current_spot = next((p for p in reversed(close_prices) if p is not None), None)
             
             if current_spot is None:
-                raise ValueError("No price data available")
+                raise ValueError("No price data from Yahoo")
             
             prev_close = meta.get('chartPreviousClose', meta.get('previousClose', current_spot))
             high_24h = meta.get('regularMarketDayHigh', current_spot)
             low_24h = meta.get('regularMarketDayLow', current_spot)
-            open_price = meta.get('regularMarketDayOpen', prev_close)
             
             change = current_spot - prev_close
             change_percent = (change / prev_close) * 100 if prev_close else 0
             
-            # Spread สำหรับ Forex
             spread = 0.50
             forex_price = current_spot + random.uniform(0.30, 1.00)
             
-            print(f"✅ ราคา XAUUSD Real-time: ${current_spot:.2f} ({change:+.2f}, {change_percent:+.2f}%)")
+            print(f"✅ Yahoo Finance: ${current_spot:.2f} ({change:+.2f}, {change_percent:+.2f}%)")
             
             return {
                 'price': round(forex_price, 2),
@@ -1166,56 +1214,32 @@ def get_gold_price():
                 'change_percent': round(change_percent, 2),
                 'high': round(high_24h, 2),
                 'low': round(low_24h, 2),
-                'open': round(open_price, 2),
+                'open': round(prev_close, 2),
                 'spread': round(forex_price - current_spot, 2),
                 'bid': round(forex_price - spread, 2),
                 'ask': round(forex_price + spread, 2)
             }, None
             
-    except Exception as e:
-        print(f"⚠️ API Error: {e}, using fallback")
-        fallback_price = 4066.50
-        forex_price = fallback_price + 0.50
-        
-        return {
-            'price': round(forex_price, 2),
-            'spot_price': fallback_price,
-            'change': -3.50,
-            'change_percent': -0.39,
-            'high': 4101.23,
-            'low': 4022.77,
-            'open': 4070.00,
-            'spread': 0.50,
-            'bid': round(forex_price - 0.50, 2),
-            'ask': round(forex_price + 0.50, 2)
-        }, str(e)
-
-def get_spdr_gold_flows():
-    """ดึงข้อมูล SPDR Gold Trust (GLD) Flows"""
-    try:
-        today_flow = random.uniform(-8, 12)
-        weekly_flow = random.uniform(-25, 35)
-        total_holdings = 882.5 + random.uniform(-10, 10)
-       
-        if weekly_flow > 15:
-            sentiment = "BULLISH"
-            analysis = "Strong institutional buying - Major funds accumulating gold positions"
-        elif weekly_flow < -15:
-            sentiment = "BEARISH"
-            analysis = "Heavy outflows detected - Institutional selling pressure"
-        else:
-            sentiment = "NEUTRAL"
-            analysis = "Mixed flows - Market in consolidation phase"
-       
-        return {
-            'today_flow': today_flow,
-            'weekly_flow': weekly_flow,
-            'total_holdings': total_holdings,
-            'sentiment': sentiment,
-            'analysis': analysis
-        }, None
-    except Exception as e:
-        return None, str(e)
+    except Exception as e2:
+        print(f"⚠️ Yahoo Finance failed: {e2}")
+    
+    # ===== Fallback =====
+    print("⚠️ All APIs failed - using fallback")
+    fallback_price = 4066.50
+    forex_price = fallback_price + 0.50
+    
+    return {
+        'price': round(forex_price, 2),
+        'spot_price': fallback_price,
+        'change': -3.50,
+        'change_percent': -0.39,
+        'high': 4101.23,
+        'low': 4022.77,
+        'open': 4070.00,
+        'spread': 0.50,
+        'bid': round(forex_price - 0.50, 2),
+        'ask': round(forex_price + 0.50, 2)
+    }, "All APIs failed"
 
 def get_forex_factory_calendar():
     """ดึง Economic Calendar จาก Forex Factory"""
