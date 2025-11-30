@@ -1124,51 +1124,68 @@ def get_gold_price():
     """ดึงราคา XAUUSD แบบ Real-time"""
     try:
         response = session.get(
-            'https://www.goldapi.io/api/XAU/USD',
-            headers={'x-access-token': 'goldapi-167cjlsmil2hu71-io'},
+            'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X',
+            params={'interval': '1m', 'range': '1d'},
+            headers={'User-Agent': 'Mozilla/5.0'},
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            current_spot = data['price']
-            high_24h = data.get('high_price', current_spot + 20)
-            low_24h = data.get('low_price', current_spot - 20)
-            open_price = data.get('open_price', current_spot)
-            prev_close = data.get('prev_close_price', current_spot)
-            change = current_spot - prev_close
-            forex_price = current_spot + random.uniform(0.50, 2.00)
+            result = data['chart']['result'][0]
+            meta = result['meta']
             
-            print(f"✅ ราคาจาก API: ${current_spot:.2f}")
-        else:
-            raise Exception(f"API Error {response.status_code}")
-       
-        return {
-            'price': round(forex_price, 2),
-            'spot_price': round(current_spot, 2),
-            'change': change,
-            'change_percent': (change / current_spot) * 100,
-            'high': high_24h,
-            'low': low_24h,
-            'open': open_price,
-            'spread': round(forex_price - current_spot, 2),
-            'bid': round(forex_price - 0.50, 2),
-            'ask': round(forex_price + 0.50, 2)
-        }, None
-       
+            # ดึงราคาปัจจุบัน
+            current_spot = meta.get('regularMarketPrice')
+            if current_spot is None:
+                indicators = result.get('indicators', {}).get('quote', [{}])[0]
+                close_prices = indicators.get('close', [])
+                current_spot = next((p for p in reversed(close_prices) if p is not None), None)
+            
+            if current_spot is None:
+                raise ValueError("No price data available")
+            
+            prev_close = meta.get('chartPreviousClose', meta.get('previousClose', current_spot))
+            high_24h = meta.get('regularMarketDayHigh', current_spot)
+            low_24h = meta.get('regularMarketDayLow', current_spot)
+            open_price = meta.get('regularMarketDayOpen', prev_close)
+            
+            change = current_spot - prev_close
+            change_percent = (change / prev_close) * 100 if prev_close else 0
+            
+            # Spread สำหรับ Forex
+            spread = 0.50
+            forex_price = current_spot + random.uniform(0.30, 1.00)
+            
+            print(f"✅ ราคา XAUUSD Real-time: ${current_spot:.2f} ({change:+.2f}, {change_percent:+.2f}%)")
+            
+            return {
+                'price': round(forex_price, 2),
+                'spot_price': round(current_spot, 2),
+                'change': round(change, 2),
+                'change_percent': round(change_percent, 2),
+                'high': round(high_24h, 2),
+                'low': round(low_24h, 2),
+                'open': round(open_price, 2),
+                'spread': round(forex_price - current_spot, 2),
+                'bid': round(forex_price - spread, 2),
+                'ask': round(forex_price + spread, 2)
+            }, None
+            
     except Exception as e:
-        fallback_price = 4065.00
-        forex_price = fallback_price + 1.50
-       
+        print(f"⚠️ API Error: {e}, using fallback")
+        fallback_price = 4066.50
+        forex_price = fallback_price + 0.50
+        
         return {
             'price': round(forex_price, 2),
             'spot_price': fallback_price,
-            'change': -13.50,
-            'change_percent': -0.33,
+            'change': -3.50,
+            'change_percent': -0.39,
             'high': 4101.23,
             'low': 4022.77,
-            'open': 4077.54,
-            'spread': 1.50,
+            'open': 4070.00,
+            'spread': 0.50,
             'bid': round(forex_price - 0.50, 2),
             'ask': round(forex_price + 0.50, 2)
         }, str(e)
@@ -2121,11 +2138,11 @@ if __name__ == '__main__':
     print("  ✅ AI-Powered Analysis")
     print("  ✅ MT5 Trading Signals")
     print("=" * 60)
-    print("🌐 Dashboard: http://localhost:5000")
-    print("📡 API Signals: http://localhost:5000/api/signal")
-    print("📊 API Data: http://localhost:5000/api/data")
-    print("🧪 Test: http://localhost:5000/test")
+    print("🌐 Dashboard: http://localhost:8080")
+    print("📡 API Signals: http://localhost:8080/api/signal")
+    print("📊 API Data: http://localhost:8080/api/data")
+    print("🧪 Test: http://localhost:8080/test")
     print("=" * 60)
     
     # เปลี่ยนจาก port 5000 เป็น 8080
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=8080)
