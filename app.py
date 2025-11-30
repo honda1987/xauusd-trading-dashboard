@@ -1099,17 +1099,116 @@ TEMPLATE = '''
     </div>
    
     <script>
-        setInterval(() => {
-            fetch('/api/signal')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.signal) {
-                        location.reload();
+    // อัพเดทราคาทุก 5 วินาที
+    function updatePrices() {
+        fetch('/api/data')
+            .then(res => res.json())
+            .then(data => {
+                console.log('📊 Data received:', data);
+                
+                if (data.gold) {
+                    // อัพเดทราคาหลัก
+                    const priceEls = document.querySelectorAll('.price');
+                    if (priceEls.length > 0) {
+                        const priceEl = priceEls[0];
+                        const newPrice = data.gold.price;
+                        const oldPrice = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ''));
+                        
+                        priceEl.textContent = '$' + newPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        
+                        // Animation เมื่อราคาเปลี่ยน
+                        if (!isNaN(oldPrice) && oldPrice > 0) {
+                            if (newPrice > oldPrice) {
+                                priceEl.style.color = '#00ff88';
+                                priceEl.style.transform = 'scale(1.1)';
+                                setTimeout(() => {
+                                    priceEl.style.color = '#ffd700';
+                                    priceEl.style.transform = 'scale(1)';
+                                }, 800);
+                            } else if (newPrice < oldPrice) {
+                                priceEl.style.color = '#ff4757';
+                                priceEl.style.transform = 'scale(1.1)';
+                                setTimeout(() => {
+                                    priceEl.style.color = '#ffd700';
+                                    priceEl.style.transform = 'scale(1)';
+                                }, 800);
+                            }
+                        }
                     }
-                    document.getElementById('update-time').textContent = data.update_time;
-                })
-                .catch(err => console.log('Update error:', err));
-        }, 10000);
+                    
+                    // อัพเดท Change
+                    const changeEls = document.querySelectorAll('.change');
+                    if (changeEls.length > 0) {
+                        const changeEl = changeEls[0];
+                        const change = data.gold.change;
+                        const changePercent = data.gold.change_percent;
+                        changeEl.innerHTML = `24h: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`;
+                        changeEl.className = change >= 0 ? 'change positive' : 'change negative';
+                    }
+                    
+                    // อัพเดท BID/ASK
+                    const bidAskGrids = document.querySelectorAll('div[style*="grid-template-columns: 1fr 1fr"]');
+                    for (let grid of bidAskGrids) {
+                        const labels = grid.querySelectorAll('div[style*="font-size: 10px"]');
+                        const hasBidAsk = Array.from(labels).some(l => l.textContent.includes('BID') || l.textContent.includes('ASK'));
+                        
+                        if (hasBidAsk) {
+                            const values = grid.querySelectorAll('div[style*="font-weight: bold"]');
+                            if (values[0]) values[0].textContent = '$' + data.gold.bid.toFixed(2);
+                            if (values[1]) values[1].textContent = '$' + data.gold.ask.toFixed(2);
+                            break;
+                        }
+                    }
+                    
+                    // อัพเดท High/Low/Range
+                    const infoEls = document.querySelectorAll('.info');
+                    let foundHigh = false, foundLow = false, foundRange = false;
+                    
+                    for (let info of infoEls) {
+                        if (!foundHigh && info.textContent.includes('High:')) {
+                            info.textContent = 'High: $' + data.gold.high.toFixed(2);
+                            foundHigh = true;
+                        } else if (!foundLow && info.textContent.includes('Low:')) {
+                            info.textContent = 'Low: $' + data.gold.low.toFixed(2);
+                            foundLow = true;
+                        } else if (!foundRange && info.textContent.includes('Range:')) {
+                            const range = (data.gold.high - data.gold.low) * 100;
+                            info.textContent = 'Range: ' + range.toFixed(1) + ' pips';
+                            foundRange = true;
+                        }
+                    }
+                    
+                    console.log('✅ อัพเดทราคา: $' + data.gold.price.toFixed(2));
+                }
+                
+                // อัพเดทเวลา
+                const now = new Date();
+                const timeStr = now.getFullYear() + '-' + 
+                    String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                    String(now.getDate()).padStart(2, '0') + ' ' +
+                    String(now.getHours()).padStart(2, '0') + ':' + 
+                    String(now.getMinutes()).padStart(2, '0') + ':' + 
+                    String(now.getSeconds()).padStart(2, '0');
+                
+                const timeEl = document.getElementById('update-time');
+                if (timeEl) timeEl.textContent = timeStr;
+            })
+            .catch(err => console.error('⚠️ Update error:', err));
+    }
+    
+    // เรียกทันทีตอนโหลด
+    console.log('🚀 Starting price updates...');
+    updatePrices();
+    
+    // อัพเดททุก 5 วินาที
+    setInterval(updatePrices, 5000);
+    
+    // Reload หน้าเว็บทั้งหมดทุก 5 นาที
+    setInterval(() => {
+        console.log('🔄 Reloading dashboard...');
+        location.reload();
+    }, 300000);
+</script>
     </script>
 </body>
 </html>
