@@ -3,7 +3,6 @@ import requests
 from datetime import datetime, timedelta
 import random
 import json
-from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
