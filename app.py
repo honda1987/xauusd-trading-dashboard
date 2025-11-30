@@ -1099,116 +1099,17 @@ TEMPLATE = '''
     </div>
    
     <script>
-    // อัพเดทราคาทุก 5 วินาที
-    function updatePrices() {
-        fetch('/api/data')
-            .then(res => res.json())
-            .then(data => {
-                console.log('📊 Data received:', data);
-                
-                if (data.gold) {
-                    // อัพเดทราคาหลัก
-                    const priceEls = document.querySelectorAll('.price');
-                    if (priceEls.length > 0) {
-                        const priceEl = priceEls[0];
-                        const newPrice = data.gold.price;
-                        const oldPrice = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ''));
-                        
-                        priceEl.textContent = '$' + newPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-                        
-                        // Animation เมื่อราคาเปลี่ยน
-                        if (!isNaN(oldPrice) && oldPrice > 0) {
-                            if (newPrice > oldPrice) {
-                                priceEl.style.color = '#00ff88';
-                                priceEl.style.transform = 'scale(1.1)';
-                                setTimeout(() => {
-                                    priceEl.style.color = '#ffd700';
-                                    priceEl.style.transform = 'scale(1)';
-                                }, 800);
-                            } else if (newPrice < oldPrice) {
-                                priceEl.style.color = '#ff4757';
-                                priceEl.style.transform = 'scale(1.1)';
-                                setTimeout(() => {
-                                    priceEl.style.color = '#ffd700';
-                                    priceEl.style.transform = 'scale(1)';
-                                }, 800);
-                            }
-                        }
+        setInterval(() => {
+            fetch('/api/signal')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.signal) {
+                        location.reload();
                     }
-                    
-                    // อัพเดท Change
-                    const changeEls = document.querySelectorAll('.change');
-                    if (changeEls.length > 0) {
-                        const changeEl = changeEls[0];
-                        const change = data.gold.change;
-                        const changePercent = data.gold.change_percent;
-                        changeEl.innerHTML = `24h: ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${change >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`;
-                        changeEl.className = change >= 0 ? 'change positive' : 'change negative';
-                    }
-                    
-                    // อัพเดท BID/ASK
-                    const bidAskGrids = document.querySelectorAll('div[style*="grid-template-columns: 1fr 1fr"]');
-                    for (let grid of bidAskGrids) {
-                        const labels = grid.querySelectorAll('div[style*="font-size: 10px"]');
-                        const hasBidAsk = Array.from(labels).some(l => l.textContent.includes('BID') || l.textContent.includes('ASK'));
-                        
-                        if (hasBidAsk) {
-                            const values = grid.querySelectorAll('div[style*="font-weight: bold"]');
-                            if (values[0]) values[0].textContent = '$' + data.gold.bid.toFixed(2);
-                            if (values[1]) values[1].textContent = '$' + data.gold.ask.toFixed(2);
-                            break;
-                        }
-                    }
-                    
-                    // อัพเดท High/Low/Range
-                    const infoEls = document.querySelectorAll('.info');
-                    let foundHigh = false, foundLow = false, foundRange = false;
-                    
-                    for (let info of infoEls) {
-                        if (!foundHigh && info.textContent.includes('High:')) {
-                            info.textContent = 'High: $' + data.gold.high.toFixed(2);
-                            foundHigh = true;
-                        } else if (!foundLow && info.textContent.includes('Low:')) {
-                            info.textContent = 'Low: $' + data.gold.low.toFixed(2);
-                            foundLow = true;
-                        } else if (!foundRange && info.textContent.includes('Range:')) {
-                            const range = (data.gold.high - data.gold.low) * 100;
-                            info.textContent = 'Range: ' + range.toFixed(1) + ' pips';
-                            foundRange = true;
-                        }
-                    }
-                    
-                    console.log('✅ อัพเดทราคา: $' + data.gold.price.toFixed(2));
-                }
-                
-                // อัพเดทเวลา
-                const now = new Date();
-                const timeStr = now.getFullYear() + '-' + 
-                    String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                    String(now.getDate()).padStart(2, '0') + ' ' +
-                    String(now.getHours()).padStart(2, '0') + ':' + 
-                    String(now.getMinutes()).padStart(2, '0') + ':' + 
-                    String(now.getSeconds()).padStart(2, '0');
-                
-                const timeEl = document.getElementById('update-time');
-                if (timeEl) timeEl.textContent = timeStr;
-            })
-            .catch(err => console.error('⚠️ Update error:', err));
-    }
-    
-    // เรียกทันทีตอนโหลด
-    console.log('🚀 Starting price updates...');
-    updatePrices();
-    
-    // อัพเดททุก 5 วินาที
-    setInterval(updatePrices, 5000);
-    
-    // Reload หน้าเว็บทั้งหมดทุก 5 นาที
-    setInterval(() => {
-        console.log('🔄 Reloading dashboard...');
-        location.reload();
-    }, 300000);
-</script>
+                    document.getElementById('update-time').textContent = data.update_time;
+                })
+                .catch(err => console.log('Update error:', err));
+        }, 10000);
     </script>
 </body>
 </html>
@@ -1223,68 +1124,51 @@ def get_gold_price():
     """ดึงราคา XAUUSD แบบ Real-time"""
     try:
         response = session.get(
-            'https://query1.finance.yahoo.com/v8/finance/chart/XAUUSD=X',
-            params={'interval': '1m', 'range': '1d'},
-            headers={'User-Agent': 'Mozilla/5.0'},
+            'https://www.goldapi.io/api/XAU/USD',
+            headers={'x-access-token': 'goldapi-167cjlsmil2hu71-io'},
             timeout=10
         )
         
         if response.status_code == 200:
             data = response.json()
-            result = data['chart']['result'][0]
-            meta = result['meta']
-            
-            # ดึงราคาปัจจุบัน
-            current_spot = meta.get('regularMarketPrice')
-            if current_spot is None:
-                indicators = result.get('indicators', {}).get('quote', [{}])[0]
-                close_prices = indicators.get('close', [])
-                current_spot = next((p for p in reversed(close_prices) if p is not None), None)
-            
-            if current_spot is None:
-                raise ValueError("No price data available")
-            
-            prev_close = meta.get('chartPreviousClose', meta.get('previousClose', current_spot))
-            high_24h = meta.get('regularMarketDayHigh', current_spot)
-            low_24h = meta.get('regularMarketDayLow', current_spot)
-            open_price = meta.get('regularMarketDayOpen', prev_close)
-            
+            current_spot = data['price']
+            high_24h = data.get('high_price', current_spot + 20)
+            low_24h = data.get('low_price', current_spot - 20)
+            open_price = data.get('open_price', current_spot)
+            prev_close = data.get('prev_close_price', current_spot)
             change = current_spot - prev_close
-            change_percent = (change / prev_close) * 100 if prev_close else 0
+            forex_price = current_spot + random.uniform(0.50, 2.00)
             
-            # Spread สำหรับ Forex
-            spread = 0.50
-            forex_price = current_spot + random.uniform(0.30, 1.00)
-            
-            print(f"✅ ราคา XAUUSD Real-time: ${current_spot:.2f} ({change:+.2f}, {change_percent:+.2f}%)")
-            
-            return {
-                'price': round(forex_price, 2),
-                'spot_price': round(current_spot, 2),
-                'change': round(change, 2),
-                'change_percent': round(change_percent, 2),
-                'high': round(high_24h, 2),
-                'low': round(low_24h, 2),
-                'open': round(open_price, 2),
-                'spread': round(forex_price - current_spot, 2),
-                'bid': round(forex_price - spread, 2),
-                'ask': round(forex_price + spread, 2)
-            }, None
-            
+            print(f"✅ ราคาจาก API: ${current_spot:.2f}")
+        else:
+            raise Exception(f"API Error {response.status_code}")
+       
+        return {
+            'price': round(forex_price, 2),
+            'spot_price': round(current_spot, 2),
+            'change': change,
+            'change_percent': (change / current_spot) * 100,
+            'high': high_24h,
+            'low': low_24h,
+            'open': open_price,
+            'spread': round(forex_price - current_spot, 2),
+            'bid': round(forex_price - 0.50, 2),
+            'ask': round(forex_price + 0.50, 2)
+        }, None
+       
     except Exception as e:
-        print(f"⚠️ API Error: {e}, using fallback")
-        fallback_price = 4066.50
-        forex_price = fallback_price + 0.50
-        
+        fallback_price = 4065.00
+        forex_price = fallback_price + 1.50
+       
         return {
             'price': round(forex_price, 2),
             'spot_price': fallback_price,
-            'change': -3.50,
-            'change_percent': -0.39,
+            'change': -13.50,
+            'change_percent': -0.33,
             'high': 4101.23,
             'low': 4022.77,
-            'open': 4070.00,
-            'spread': 0.50,
+            'open': 4077.54,
+            'spread': 1.50,
             'bid': round(forex_price - 0.50, 2),
             'ask': round(forex_price + 0.50, 2)
         }, str(e)
@@ -2242,6 +2126,4 @@ if __name__ == '__main__':
     print("📊 API Data: http://localhost:8080/api/data")
     print("🧪 Test: http://localhost:8080/test")
     print("=" * 60)
-    import os
-    port = int(os.environ.get('PORT', 8080))
-    app.run(debug=False, host='0.0.0.0', port=port)
+    app.run(debug=True, host='0.0.0.0', port=8080)
