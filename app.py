@@ -2121,9 +2121,11 @@ if __name__ == '__main__':
     print("  ✅ AI-Powered Analysis")
     print("  ✅ MT5 Trading Signals")
     print("=" * 60)
-    print("🌐 Dashboard: http://localhost:8080")
-    print("📡 API Signals: http://localhost:8080/api/signal")
-    print("📊 API Data: http://localhost:8080/api/data")
-    print("🧪 Test: http://localhost:8080/test")
+    print("🌐 Dashboard: http://localhost:5000")
+    print("📡 API Signals: http://localhost:5000/api/signal")
+    print("📊 API Data: http://localhost:5000/api/data")
+    print("🧪 Test: http://localhost:5000/test")
     print("=" * 60)
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    
+    # เปลี่ยนจาก port 5000 เป็น 8080
+    app.run(debug=True, host='0.0.0.0', port=5000)
