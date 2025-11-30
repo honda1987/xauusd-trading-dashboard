@@ -1125,30 +1125,30 @@ session.headers.update({
 def get_gold_price():
     """ดึงราคา XAUUSD แบบ Real-time"""
     try:
-        current_spot = 4070.00 + random.uniform(-20, 20)
-        forex_price = current_spot + random.uniform(0.50, 2.00)
-       
-        high_24h = 4101.23
-        low_24h = 4022.77
-        open_price = 4077.54
-        change = current_spot - open_price
-       
+        # ใช้ API จริง (ตัวอย่าง)
+        response = session.get('https://api.metals.live/v1/spot/gold', timeout=5)
+        data = response.json()
+        
+        spot_price = data['price']
+        forex_price = spot_price + random.uniform(0.50, 2.00)
+        
         return {
             'price': round(forex_price, 2),
-            'spot_price': round(current_spot, 2),
-            'change': change,
-            'change_percent': (change / current_spot) * 100,
-            'high': high_24h,
-            'low': low_24h,
-            'open': open_price,
-            'spread': round(forex_price - current_spot, 2),
+            'spot_price': round(spot_price, 2),
+            'change': data.get('change', 0),
+            'change_percent': data.get('change_percent', 0),
+            'high': data.get('high', spot_price + 10),
+            'low': data.get('low', spot_price - 10),
+            'open': data.get('open', spot_price),
+            'spread': round(forex_price - spot_price, 2),
             'bid': round(forex_price - 0.50, 2),
             'ask': round(forex_price + 0.50, 2)
         }, None
        
     except Exception as e:
-        fallback_price = 4065.00
-        forex_price = fallback_price + 1.50
+        # Fallback - ใช้ราคาแบบ Random
+        current_spot = 4070.00 + random.uniform(-20, 20)
+        # ... (โค้ดเดิม)
        
         return {
             'price': round(forex_price, 2),
