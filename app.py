@@ -2125,7 +2125,7 @@ if __name__ == '__main__':
     print("📡 API Signals: http://localhost:8080/api/signal")
     print("📊 API Data: http://localhost:8080/api/data")
     print("🧪 Test: http://localhost:8080/test")
-    if __name__ == '__main__':
+    print("=" * 60)
     import os
     port = int(os.environ.get('PORT', 8080))
     app.run(debug=False, host='0.0.0.0', port=port)
